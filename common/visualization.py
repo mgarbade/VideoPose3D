@@ -108,11 +108,13 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
         all_frames = np.zeros((keypoints.shape[0], viewport[1], viewport[0]), dtype='uint8')
     else:
         # Load video using ffmpeg
-        all_frames = []
-        for f in read_video(input_video_path, skip=input_video_skip, limit=limit):
-            all_frames.append(f)
-        effective_length = min(keypoints.shape[0], len(all_frames))
-        all_frames = all_frames[:effective_length]
+        # all_frames = []
+        # for f in read_video(input_video_path, skip=input_video_skip, limit=limit):
+        #     all_frames.append(f)
+        # effective_length = min(keypoints.shape[0], len(all_frames))
+        # all_frames = all_frames[:effective_length]
+
+        frame_iterator = read_video(input_video_path, skip=input_video_skip, limit=limit)
         
         keypoints = keypoints[input_video_skip:] # todo remove
         for idx in range(len(poses)):
@@ -121,23 +123,24 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
         if fps is None:
             fps = get_fps(input_video_path)
     
-    if downsample > 1:
-        keypoints = downsample_tensor(keypoints, downsample)
-        all_frames = downsample_tensor(np.array(all_frames), downsample).astype('uint8')
-        for idx in range(len(poses)):
-            poses[idx] = downsample_tensor(poses[idx], downsample)
-            trajectories[idx] = downsample_tensor(trajectories[idx], downsample)
-        fps /= downsample
+    # if downsample > 1:
+    #     keypoints = downsample_tensor(keypoints, downsample)
+    #     all_frames = downsample_tensor(np.array(all_frames), downsample).astype('uint8')
+    #     for idx in range(len(poses)):
+    #         poses[idx] = downsample_tensor(poses[idx], downsample)
+    #         trajectories[idx] = downsample_tensor(trajectories[idx], downsample)
+    #     fps /= downsample
 
     initialized = False
     image = None
     lines = []
     points = None
-    
-    if limit < 1:
-        limit = len(all_frames)
-    else:
-        limit = min(limit, len(all_frames))
+
+    limit = keypoints.shape[0]
+    # if limit < 1:
+    #     limit = len(all_frames)
+    # else:
+    #     limit = min(limit, len(all_frames))
 
     parents = skeleton.parents()
     def update_video(i):
@@ -151,8 +154,13 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
         joints_right_2d = keypoints_metadata['keypoints_symmetry'][1]
         colors_2d = np.full(keypoints.shape[1], 'black')
         colors_2d[joints_right_2d] = 'red'
+
+        # Display current frame
+        # curr_frame = all_frames[i]
+        curr_frame = next(frame_iterator)
+
         if not initialized:
-            image = ax_in.imshow(all_frames[i], aspect='equal')
+            image = ax_in.imshow(curr_frame, aspect='equal')
             
             for j, j_parent in enumerate(parents):
                 if j_parent == -1:
@@ -174,7 +182,7 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
 
             initialized = True
         else:
-            image.set_data(all_frames[i])
+            image.set_data(curr_frame)
 
             for j, j_parent in enumerate(parents):
                 if j_parent == -1:
