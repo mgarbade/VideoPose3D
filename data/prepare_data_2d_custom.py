@@ -11,17 +11,21 @@ import os
 import sys
 
 import argparse
+
+from cli_convert_video_pose_format import decode_annotation_json
 from data_utils import suggest_metadata
 
 output_prefix_2d = 'data_2d_custom_'
+
 
 def decode(filename):
     # Latin1 encoding because Detectron runs on Python 2.7
     print('Processing {}'.format(filename))
     data = np.load(filename, encoding='latin1', allow_pickle=True)
+    metadata = data['metadata'].item()
+
     bb = data['boxes']
     kp = data['keypoints']
-    metadata = data['metadata'].item()
     results_bb = []
     results_kp = []
     for i in range(len(bb)):
@@ -38,7 +42,7 @@ def decode(filename):
         
     bb = np.array(results_bb, dtype=np.float32)
     kp = np.array(results_kp, dtype=np.float32)
-    kp = kp[:, :, :2] # Extract (x, y)
+    kp = kp[:, :, :2]  # Extract (x, y)
     
     # Fix missing bboxes/keypoints by linear interpolation
     mask = ~np.isnan(bb[:, 0])
@@ -54,8 +58,8 @@ def decode(filename):
     print('----------')
     
     return [{
-        'start_frame': 0, # Inclusive
-        'end_frame': len(kp), # Exclusive
+        'start_frame': 0,  # Inclusive
+        'end_frame': len(kp),  # Exclusive
         'bounding_boxes': bb,
         'keypoints': kp,
     }], metadata
@@ -88,11 +92,14 @@ if __name__ == '__main__':
     file_list = glob(args.input + '/*.npz')
     for f in file_list:
         canonical_name = os.path.splitext(os.path.basename(f))[0]
-        data, video_metadata = decode(f)
+        # data, video_metadata = decode(f)
+        data, video_metadata = decode_annotation_json(f)
         output[canonical_name] = {}
         output[canonical_name]['custom'] = [data[0]['keypoints'].astype('float32')]
         metadata['video_metadata'][canonical_name] = video_metadata
 
     print('Saving...')
-    np.savez_compressed(output_prefix_2d + args.output, positions_2d=output, metadata=metadata)
+    np.savez_compressed(output_prefix_2d + args.output,
+                        positions_2d=output,
+                        metadata=metadata)
     print('Done.')

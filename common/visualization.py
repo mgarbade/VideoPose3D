@@ -14,6 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import subprocess as sp
 
+
 def get_resolution(filename):
     command = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
                '-show_entries', 'stream=width,height', '-of', 'csv=p=0', filename]
@@ -21,7 +22,8 @@ def get_resolution(filename):
         for line in pipe.stdout:
             w, h = line.decode().strip().split(',')
             return int(w), int(h)
-            
+
+
 def get_fps(filename):
     command = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
                '-show_entries', 'stream=r_frame_rate', '-of', 'csv=p=0', filename]
@@ -29,6 +31,7 @@ def get_fps(filename):
         for line in pipe.stdout:
             a, b = line.decode().strip().split('/')
             return int(a) / int(b)
+
 
 def read_video(filename, skip=0, limit=-1):
     w, h = get_resolution(filename)
@@ -52,12 +55,11 @@ def read_video(filename, skip=0, limit=-1):
             if i > skip:
                 yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
             
-                
-                
-    
+
 def downsample_tensor(X, factor):
     length = X.shape[0]//factor * factor
     return np.mean(X[:length].reshape(-1, factor, *X.shape[1:]), axis=1)
+
 
 def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrate, azim, output, viewport,
                      limit=-1, downsample=1, size=6, input_video_path=None, input_video_skip=0):
@@ -143,8 +145,9 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
     #     limit = min(limit, len(all_frames))
 
     parents = skeleton.parents()
+
     def update_video(i):
-        nonlocal initialized, image, lines, points
+        nonlocal initialized, image, lines, points, frame_iterator
 
         for n, ax in enumerate(ax_3d):
             ax.set_xlim3d([-radius/2 + trajectories[n][i, 0], radius/2 + trajectories[n][i, 0]])
@@ -202,13 +205,11 @@ def render_animation(keypoints, keypoints_metadata, poses, skeleton, fps, bitrat
         
         print('{}/{}      '.format(i, limit), end='\r')
         
-
     fig.tight_layout()
-    
     anim = FuncAnimation(fig, update_video, frames=np.arange(0, limit), interval=1000/fps, repeat=False)
     if output.endswith('.mp4'):
-        Writer = writers['ffmpeg']
-        writer = Writer(fps=fps, metadata={}, bitrate=bitrate)
+        mVideoWriter = writers['ffmpeg']
+        writer = mVideoWriter(fps=fps, metadata={}, bitrate=bitrate)
         anim.save(output, writer=writer)
     elif output.endswith('.gif'):
         anim.save(output, dpi=80, writer='imagemagick')
